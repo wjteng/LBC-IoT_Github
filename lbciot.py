@@ -12,13 +12,6 @@ def BETA():
 
 MASK_VAL = 2 ** WORD_SIZE() - 1;
 
-#From table
-#P1 = [13,10,7,12,9,14,3,2,5,16,15,4,1,6,11,8];
-#P1_r = [13,8,7,12,9,14,3,16,5,2,15,4,1,6,11,10];
-#P2 = [5,8,16,12,3,11,2,13,4,1,14,6,9,15,7,10];
-#P2_r = [10,7,5,9,1,12,15,2,13,16,6,4,8,11,14,3];
-
-#inversed from table
 P1_r = [13,10,7,12,9,14,3,2,5,16,15,4,1,6,11,8];
 P1 = [13,8,7,12,9,14,3,16,5,2,15,4,1,6,11,10];
 P2_r = [5,8,16,12,3,11,2,13,4,1,14,6,9,15,7,10];
@@ -46,27 +39,16 @@ def rolnib(x,k):
 def ror(x,k):
     return((x >> k) | ((x << (WORD_SIZE() - k)) & MASK_VAL));
 
-#def enc_one_round(p, k):
-#    c0, c1 = p[0], p[1];
-#    c0 = ror(c0, ALPHA());
-#    c0 = (c0 + c1) & MASK_VAL;
-#    c0 = c0 ^ k;
-#    c1 = rol(c1, BETA());
-#    c1 = c1 ^ c0;
-#    return(c0,c1);
+
 
 def enc_one_round(p,k):
     l,r =  p[0], p[1];
   
     #P2#
     r_p = permute(r,P2);
-
-    #P2 Removed
-    #r_p = r;
    
     #Left Shift   
     r_7 = rol(r,7);
-    #r_7 = r * 1;
     
     #Substitution
     r_s = substitute (r_7,S);
@@ -76,9 +58,6 @@ def enc_one_round(p,k):
 
     #P1
     r = permute(l,P1);
-
-    #P1 removed
-    #r = l;
 
     l=r_p;
     return(l,r);
@@ -90,22 +69,15 @@ def dec_one_round(c,k):
     #P2
     l_p = permute(l,P2_r);
 
-    #P2 removed
-    #l_p = l;
-   
     #Left Shift   
     l_7 = rol(l_p,7);
-    #l_7 = l_p*1;
 
     #Substitution
     l_s = substitute (l_7,S);
 
     #P1
     r_p = permute(r,P1_r);
-
-    #P1 removed
-    #r_p = r;
-
+    
     #Modular Addition
     l= (l_s^r_p^k);
 
@@ -113,23 +85,6 @@ def dec_one_round(c,k):
 
     return(l,r);
 
-    
-#def dec_one_round(c,k):
-#    c0, c1 = c[0], c[1];
-#    c1 = c1 ^ c0;
-#    c1 = ror(c1, BETA());
-#    c0 = c0 ^ k;
-#    c0 = (c0 - c1) & MASK_VAL;
-#    c0 = rol(c0, ALPHA());
-#    return(c0, c1);
-
-#def expand_key(k, t):
-#    ks = [0 for i in range(t)];
-#    ks[0] = k[len(k)-1];
-#    l = list(reversed(k[:len(k)-1]));
-#    for i in range(t-1):
-#        l[i%3], ks[i+1] = enc_one_round((l[i%3], ks[i]), i);
-#    return(ks);
 
 def expand_key2(k,t): #old expandkey
     ks = [0 for i in range(t)];
@@ -234,7 +189,6 @@ def permute(x,p):
     return y;
 
 
-
 def encrypt(p, ks):
     x, y = p[0], p[1];
     for k in ks:
@@ -274,44 +228,6 @@ def convert_to_binary(arr):
     X[i] = (arr[index] >> offset) & 1;
   X = X.transpose();
   return(X);
-
-#takes a text file that contains encrypted block0, block1, true diff prob, real or random
-#data samples are line separated, the above items whitespace-separated
-#returns train data, ground truth, optimal ddt prediction
-def readcsv(datei):
-    data = np.genfromtxt(datei, delimiter=' ', converters={x: lambda s: int(s,16) for x in range(2)});
-    X0 = [data[i][0] for i in range(len(data))];
-    X1 = [data[i][1] for i in range(len(data))];
-    Y = [data[i][3] for i in range(len(data))];
-    Z = [data[i][2] for i in range(len(data))];
-    ct0a = [X0[i] >> 16 for i in range(len(data))];
-    ct1a = [X0[i] & MASK_VAL for i in range(len(data))];
-    ct0b = [X1[i] >> 16 for i in range(len(data))];
-    ct1b = [X1[i] & MASK_VAL for i in range(len(data))];
-    ct0a = np.array(ct0a, dtype=np.uint16); ct1a = np.array(ct1a,dtype=np.uint16);
-    ct0b = np.array(ct0b, dtype=np.uint16); ct1b = np.array(ct1b, dtype=np.uint16);
-    
-    #X = [[X0[i] >> 16, X0[i] & 0xffff, X1[i] >> 16, X1[i] & 0xffff] for i in range(len(data))];
-    X = convert_to_binary([ct0a, ct1a, ct0b, ct1b]); 
-    Y = np.array(Y, dtype=np.uint8); Z = np.array(Z);
-    return(X,Y,Z);
-
-#baseline training data generator
-def make_train_data(n, nr, diff=(0x0040,0)):
-  print(diff);
-  Y = np.frombuffer(urandom(n), dtype=np.uint8); Y = Y & 1;
-  keys = np.frombuffer(urandom(10*n),dtype=np.uint16).reshape(5,-1);
-  plain0l = np.frombuffer(urandom(2*n),dtype=np.uint16);
-  plain0r = np.frombuffer(urandom(2*n),dtype=np.uint16);
-  plain1l = plain0l ^ diff[0]; plain1r = plain0r ^ diff[1];
-  num_rand_samples = np.sum(Y==0);
-  plain1l[Y==0] = np.frombuffer(urandom(2*num_rand_samples),dtype=np.uint16);
-  plain1r[Y==0] = np.frombuffer(urandom(2*num_rand_samples),dtype=np.uint16);
-  ks = expand_key(keys, nr);
-  ctdata0l, ctdata0r = encrypt((plain0l, plain0r), ks);
-  ctdata1l, ctdata1r = encrypt((plain1l, plain1r), ks);
-  X = convert_to_binary([ctdata0l, ctdata0r, ctdata1l, ctdata1r]);
-  return(X,Y);
 
 #real differences data generator
 def real_differences_data(n, nr, diff=(0x0040,0)):
