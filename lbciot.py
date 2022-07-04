@@ -235,10 +235,12 @@ def permute(x,p):
 
 
 
-def encrypt(p, ks):
+def encrypt(p, ks , ks_l , ks_r):
     x, y = p[0], p[1];
     for k in ks:
       x,y = enc_one_round((x,y), k);
+    x = x ^ ks_l;
+    y = y ^ ks_r;
     return(x, y);
 
 def decrypt(c, ks):
@@ -327,8 +329,12 @@ def real_differences_data(n, nr, diff=(0x0040,0)):
   num_rand_samples = np.sum(Y==0);
   #expand keys and encrypt
   ks = expand_key(keys, nr);
-  ctdata0l, ctdata0r = encrypt((plain0l, plain0r), ks);
-  ctdata1l, ctdata1r = encrypt((plain1l, plain1r), ks);
+  ks_temp = expand_key(keys, nr + 2);
+  ks_l = ks_temp[nr];
+  ks_r = ks_temp[nr+1];
+
+  ctdata0l, ctdata0r = encrypt((plain0l, plain0r), ks , ks_l, ks_r);
+  ctdata1l, ctdata1r = encrypt((plain1l, plain1r), ks , ks_l, ks_r);
   #generate blinding values
   k0 = np.frombuffer(urandom(2*num_rand_samples),dtype=np.uint16);
   k1 = np.frombuffer(urandom(2*num_rand_samples),dtype=np.uint16);
